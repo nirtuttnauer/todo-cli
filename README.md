@@ -21,7 +21,7 @@ https://roadmap.sh/projects/task-tracker
 
 1. **Clone the Repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/nirtuttnauer/todo-cli.git
    cd todo-cli
    ```
 
@@ -111,11 +111,26 @@ https://roadmap.sh/projects/task-tracker
 
 ## 🧪 Testing
 
-### Run the Automated Test Script
-A comprehensive test script is available to test all functionalities. Run it using:
+### Run the Smoke-Test Script
+The repository includes `test.sh`, a demonstration script that exercises the CLI.
+It prints command output but does not assert expected results, so a successful exit
+alone is not a full correctness check.
+
+Build the application first. From the repository root, run the script with a
+throwaway home directory so it cannot modify your personal tasks:
+
 ```bash
-bash test_script.sh
+repo_root="$PWD"
+test_home="$(mktemp -d)"
+mkdir -p "$test_home/Documents"
+(cd build && HOME="$test_home" bash "$repo_root/test.sh")
+rm -rf "$test_home"
 ```
+
+The script adds, edits, and deletes tasks, then clears all tasks in its test store.
+Do not run it against your normal `HOME` unless you intend to erase those tasks.
+The application stores tasks under `$HOME/Documents/.todo-cli/`; the `Documents`
+directory must already exist.
 
 The script performs the following:
 - Adds multiple tasks.
