@@ -5,16 +5,9 @@
 TaskManager::TaskManager(const char *fileName) : fileName(fileName), jsonFile(fileName)
 {
     load();
-    if (tasks.empty())
-    {
-        this->jsonFile.create();
-    }
 }
 
-TaskManager::~TaskManager()
-{
-    save();
-}
+TaskManager::~TaskManager() = default;
 
 // Command Processing
 void TaskManager::processCommand(const std::string &command, const std::string &argument , const std::string &extra)
