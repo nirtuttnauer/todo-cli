@@ -20,6 +20,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # Add an executable target
 add_executable(todo ${SOURCES} ${HEADERS})
+if(MSVC)
+    target_compile_options(todo PRIVATE /utf-8)
+    target_link_options(todo PRIVATE /MANIFEST:EMBED
+        "/MANIFESTINPUT:${CMAKE_SOURCE_DIR}/src/todo.manifest")
+endif()
 
 # Link include directories specifically to the target
 target_include_directories(todo PRIVATE ${SRC_DIR})

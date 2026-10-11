@@ -24,7 +24,7 @@ class TaskCliTests(unittest.TestCase):
         return result
 
     def tasks(self):
-        return json.loads(self.store.read_text())
+        return json.loads(self.store.read_text(encoding="utf-8"))
 
     def test_creates_missing_documents_directory(self):
         self.run_cli('add', 'First task')
@@ -70,10 +70,10 @@ class TaskCliTests(unittest.TestCase):
                        json.dumps([dict(valid, status='unknown')]),
                        json.dumps([dict(valid, description=None)])]:
             with self.subTest(source=source):
-                self.store.write_text(source)
+                self.store.write_text(source, encoding="utf-8")
                 result = self.run_cli('add', 'must not be saved', expected=1)
                 self.assertIn('Error:', result.stderr)
-                self.assertEqual(self.store.read_text(), source)
+                self.assertEqual(self.store.read_text(encoding="utf-8"), source)
 
     def test_failed_save_preserves_previous_file(self):
         self.run_cli('add', 'first')

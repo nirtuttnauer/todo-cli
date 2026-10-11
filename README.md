@@ -50,7 +50,7 @@ https://roadmap.sh/projects/task-tracker
     ```bash
     sudo cp ./todo /usr/bin/todo
     ```
-    Windows:
+    Windows (MSVC build, Windows 10 version 1903+):
     ```bash
     todo.exe
     ```
