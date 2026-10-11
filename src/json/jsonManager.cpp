@@ -1,5 +1,6 @@
 #include "json/jsonManager.h"
 #include <nlohmann/json.hpp>
+#include <cstdlib>
 #include <limits>
 #include <set>
 
