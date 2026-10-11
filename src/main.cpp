@@ -19,10 +19,13 @@ int main(int argc, char *argv[]) {
 
 
     // Initialize TaskManager
-    TaskManager taskManager("tasks.json");
-
-    // Process command
-    taskManager.processCommand(command, argument, extra);
+    try {
+        TaskManager taskManager("tasks.json");
+        taskManager.processCommand(command, argument, extra);
+    } catch (const std::exception &error) {
+        std::cerr << "Error: " << error.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }

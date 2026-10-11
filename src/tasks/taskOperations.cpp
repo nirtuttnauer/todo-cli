@@ -1,4 +1,6 @@
 #include "tasks/taskManager.h"
+#include <algorithm>
+#include <limits>
 
 void TaskManager::addTask(const std::string &description)
 {
@@ -6,7 +8,14 @@ void TaskManager::addTask(const std::string &description)
     const std::string colorGreen = "\033[32m";
     const std::string colorCyan = "\033[36m";
 
-    Task newTask(tasks.size() + 1, description, "todo", currentTime(), currentTime());
+    int largestId = 0;
+    for (const auto &task : tasks) {
+        largestId = std::max(largestId, task.getId());
+    }
+    if (largestId == std::numeric_limits<int>::max()) {
+        throw std::runtime_error("No task IDs available.");
+    }
+    Task newTask(largestId + 1, description, "todo", currentTime(), currentTime());
     tasks.push_back(newTask);
     save();
 

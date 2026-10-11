@@ -1,4 +1,8 @@
 #include "json/jsonManager.h"
+#include <nlohmann/json.hpp>
+#include <cstdlib>
+#include <limits>
+#include <set>
 
 
 jsonManager::jsonManager(const char *fileName) {
@@ -11,7 +15,7 @@ jsonManager::jsonManager(const char *fileName) {
 
     // Ensure the invisible folder exists
     if (!std::filesystem::exists(folderPath)) {
-        std::filesystem::create_directory(folderPath);
+        std::filesystem::create_directories(folderPath);
     }
 
     // Set the JSON file path
@@ -33,119 +37,60 @@ void jsonManager::create() {
 }
 
 
-// Utility to escape JSON strings
-std::string escapeJsonString(const std::string& str) {
-    std::ostringstream escaped;
-    for (char c : str) {
-        switch (c) {
-            case '\"': escaped << "\\\""; break;
-            case '\\': escaped << "\\\\"; break;
-            case '\b': escaped << "\\b"; break;
-            case '\f': escaped << "\\f"; break;
-            case '\n': escaped << "\\n"; break;
-            case '\r': escaped << "\\r"; break;
-            case '\t': escaped << "\\t"; break;
-            default: escaped << c;
-        }
-    }
-    return escaped.str();
-}
-
-std::string extractJsonValue(const std::string& json, const std::string& key, size_t startPos) {
-
-    size_t keyPos = json.find("\"" + key + "\":", startPos);
-    if (keyPos == std::string::npos) {
-        throw std::runtime_error("Key \"" + key + "\" not found in JSON.");
-    }
-
-    size_t valueStart = json.find_first_not_of(": \t", keyPos + key.length() + 2);
-    if (valueStart == std::string::npos) {
-        throw std::runtime_error("Value for key \"" + key + "\" is not found.");
-    }
-
-    // Determine if the value is a string or a number
-    char firstChar = json[valueStart];
-    size_t valueEnd;
-    if (firstChar == '"') { // String value
-        valueStart++;
-        valueEnd = json.find('"', valueStart);
-    } else { // Numeric or boolean value
-        valueEnd = json.find_first_of(",}", valueStart);
-    }
-
-    if (valueEnd == std::string::npos) {
-        throw std::runtime_error("Value for key \"" + key + "\" is not terminated.");
-    }
-
-    std::string value = json.substr(valueStart, valueEnd - valueStart);
-    return value;
-}
-
-// Convert a vector of tasks to JSON
+// Keep the existing on-disk schema while using a complete JSON parser.
 std::string jsonManager::tasksToJson(const std::vector<Task>& tasks) {
-    std::ostringstream json;
-    json << "["; // Begin JSON array
-
-    for (size_t i = 0; i < tasks.size(); ++i) {
-        const Task& task = tasks[i];
-        json << "{"
-             << "\"id\":" << task.getId() << ","
-             << "\"description\":\"" << escapeJsonString(task.getDescription()) << "\","
-             << "\"status\":\"" << escapeJsonString(task.getStatus()) << "\","
-             << "\"createdAt\":\"" << escapeJsonString(task.getCreatedAt()) << "\","
-             << "\"updatedAt\":\"" << escapeJsonString(task.getUpdatedAt()) << "\""
-             << "}";
-
-        if (i < tasks.size() - 1) {
-            json << ","; // Add a comma between objects
-        }
-
+    auto json = nlohmann::json::array();
+    for (const auto &task : tasks) {
+        json.push_back({{"id", task.getId()}, {"description", task.getDescription()},
+                        {"status", task.getStatus()}, {"createdAt", task.getCreatedAt()},
+                        {"updatedAt", task.getUpdatedAt()}});
     }
-
-    json << "]"; // End JSON array
-    return json.str();
+    return json.dump();
 }
 
-// Parse JSON to create a vector of Task objects
-std::vector<Task> jsonManager::jsonToTasks(const std::string& json) {
-    std::vector<Task> tasks;
-    size_t pos = 0;
-
-    while ((pos = json.find("{", pos)) != std::string::npos) {
-        try {
-            size_t objectEnd = json.find("}", pos);
-            if (objectEnd == std::string::npos) {
-                throw std::runtime_error("Mismatched braces in JSON.");
-            }
-            std::string object = json.substr(pos, objectEnd - pos + 1);
-
-            std::string idStr = extractJsonValue(object, "id", 0);
-            std::string description = extractJsonValue(object, "description", 0);
-            std::string status = extractJsonValue(object, "status", 0);
-            std::string createdAt = extractJsonValue(object, "createdAt", 0);
-            std::string updatedAt = extractJsonValue(object, "updatedAt", 0);
-
-            Task task(std::stoi(idStr), description, status, createdAt, updatedAt);
-            tasks.push_back(task);
-
-            pos = objectEnd + 1;
-        } catch (const std::exception& e) {
-            pos = json.find("}", pos) + 1;
-        }
+std::vector<Task> jsonManager::jsonToTasks(const std::string& source) {
+    const auto json = nlohmann::json::parse(source);
+    if (!json.is_array()) {
+        throw std::runtime_error("Task file must contain a JSON array.");
     }
-
+    std::vector<Task> tasks;
+    std::set<int> ids;
+    for (const auto &item : json) {
+        const auto &value = item.at("id");
+        if (!value.is_number_integer() || value < 1 || value > std::numeric_limits<int>::max()) {
+            throw std::runtime_error("Task IDs must be positive integers within range.");
+        }
+        const int id = value.get<int>();
+        if (!ids.insert(id).second) {
+            throw std::runtime_error("Duplicate task ID: " + std::to_string(id));
+        }
+        const auto status = item.at("status").get<std::string>();
+        if (status != "todo" && status != "in-progress" && status != "done") {
+            throw std::runtime_error("Invalid task status: " + status);
+        }
+        tasks.emplace_back(id, item.at("description").get<std::string>(), status,
+                           item.at("createdAt").get<std::string>(),
+                           item.at("updatedAt").get<std::string>());
+    }
     return tasks;
 }
 
 // Save tasks to a file
 void jsonManager::saveToFile(const std::vector<Task>& tasks) {
-    std::ofstream outFile(this->fileName, std::ios::trunc);  // Use 'this->fileName'
+    // Serialize before opening a file, and replace only after a complete write.
+    const auto data = tasksToJson(tasks);
+    const auto temporary = this->fileName + ".tmp";
+    std::ofstream outFile(temporary, std::ios::trunc);
     if (!outFile.is_open()) {
-        throw std::runtime_error("Failed to open file for writing: " + this->fileName);
+        throw std::runtime_error("Failed to open file for writing: " + temporary);
     }
-
-    outFile << tasksToJson(tasks);
+    outFile << data;
     outFile.close();
+    if (!outFile) {
+        std::filesystem::remove(temporary);
+        throw std::runtime_error("Failed to write task file: " + this->fileName);
+    }
+    std::filesystem::rename(temporary, this->fileName);
 }
 
 std::vector<Task> jsonManager::loadFromFile() {

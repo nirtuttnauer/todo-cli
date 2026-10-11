@@ -1,4 +1,5 @@
 #include "utils/tasks/taskUtilities.h"
+#include <ctime>
 
 // Utility Functions
 std::string currentTime()

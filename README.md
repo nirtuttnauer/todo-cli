@@ -26,7 +26,9 @@ https://roadmap.sh/projects/task-tracker
    ```
 
 2. **Build the Project**:
-   Ensure you have `cmake` and a C++ compiler installed.
+   Ensure you have CMake 3.14+ and a C++17 compiler installed. The first
+   configure downloads nlohmann/json 3.12.0 and verifies its SHA-256 hash.
+   Python 3 is required for tests; use `-DBUILD_TESTING=OFF` for a build without tests.
    ```bash
    mkdir build
    cd build
@@ -48,7 +50,7 @@ https://roadmap.sh/projects/task-tracker
     ```bash
     sudo cp ./todo /usr/bin/todo
     ```
-    Windows:
+    Windows (MSVC build, Windows 10 version 1903+):
     ```bash
     todo.exe
     ```
@@ -111,6 +113,18 @@ https://roadmap.sh/projects/task-tracker
 
 ## 🧪 Testing
 
+### Automated regression tests
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+The suite uses temporary task stores and checks IDs after deletion, special
+characters and Unicode, malformed files, failed writes, and read-only commands.
+GitHub Actions builds and runs it on Linux, macOS, and Windows.
+
 ### Run the Smoke-Test Script
 The repository includes `test.sh`, a demonstration script that exercises the CLI.
 It prints command output but does not assert expected results, so a successful exit
@@ -129,8 +143,15 @@ rm -rf "$test_home"
 
 The script adds, edits, and deletes tasks, then clears all tasks in its test store.
 Do not run it against your normal `HOME` unless you intend to erase those tasks.
-The application stores tasks under `$HOME/Documents/.todo-cli/`; the `Documents`
-directory must already exist.
+The application stores tasks under `$HOME/Documents/.todo-cli/`; missing directories are created automatically. IDs are allocated above the
+largest existing ID, so deleting a task does not cause a collision with remaining
+tasks. Deleted highest IDs may be reused.
+
+Malformed task files (including duplicate IDs) produce an error and are left
+untouched. Back up the file before manually repairing it. Read-only commands do
+not rewrite existing files. Saves use a temporary file and replace the task file
+after writing successfully. Run one CLI process at a time; concurrent writes
+are not coordinated.
 
 The script performs the following:
 - Adds multiple tasks.
@@ -152,7 +173,8 @@ The test script provides detailed outputs, indicating success or failure for eac
 
 ## 🛡️ License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+No project license file is currently included. Contact the author for reuse terms.
+The build dependency nlohmann/json carries its own MIT license.
 
 ## 🤝 Contributing
 

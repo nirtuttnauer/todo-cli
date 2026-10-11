@@ -4,6 +4,8 @@
 #include "types/tasks/task.h"
 #include <fstream>
 #include <sstream>
+#include <vector>
+#include <filesystem>
 
 class jsonManager {
 public:
